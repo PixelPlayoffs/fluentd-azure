@@ -1,8 +1,8 @@
 #!/bin/bash
 
-export AZ_HOSTNAME='ipdockervm'
+export AZ_HOSTNAME='stageplayoff'
 export AZ_LOCATION='eastus'
-export AZ_RGROUP='fluentd-azure'
+export AZ_RGROUP='stageplayoff'
 export AZ_DNSNAME=$AZ_HOSTNAME
 export AZ_DNSPATH="$AZ_LOCATION.cloudapp.azure.com"
 export AZ_DNSFQDN="$AZ_DNSNAME.$AZ_DNSPATH"
@@ -96,3 +96,34 @@ docker --tlsverify \
 # Test fluentd
 log "test fluentd config"
 sh scripts/test-fluentd.sh
+
+az vm open-port --resource-group $AZ_RGROUP --name $AZ_HOSTNAME --port 80 --priority 120
+az vm open-port --resource-group $AZ_RGROUP --name $AZ_HOSTNAME --port 8090 --priority 130
+
+docker --tlsverify \
+  --tlscacert=keys/ca.pem \
+  --tlscert=keys/cert.pem \
+  --tlskey=keys/key.pem \
+  -H=$AZ_DNSFQDN:2376 run \
+  -itd -p 8090:8090 devpixel-on.azurecr.io/prod/playoffsvr:7
+
+docker --tlsverify \
+  --tlscacert=keys/ca.pem \
+  --tlscert=keys/cert.pem \
+  --tlskey=keys/key.pem \
+  -H=$AZ_DNSFQDN:2376 run \
+  -itd -p 80:80 devpixel-on.azurecr.io/prod/playoffapp:42
+
+docker --tlsverify \
+  --tlscacert=keys/ca.pem \
+  --tlscert=keys/cert.pem \
+  --tlskey=keys/key.pem \
+  -H=$AZ_DNSFQDN:2376 \
+  ps -a
+
+docker --tlsverify \
+  --tlscacert=keys/ca.pem \
+  --tlscert=keys/cert.pem \
+  --tlskey=keys/key.pem \
+  -H=$AZ_DNSFQDN:2376 \
+  rm a81a74d61285 -f
